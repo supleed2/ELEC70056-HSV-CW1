@@ -4,22 +4,30 @@
 // Authors: John Wickerson
 
 method countsquares(n:nat) returns (result:nat)
-  //ensures result == ...
+  ensures result == (n * (n + 1) * (2 * n + 1)) / 6;
 {
   var i := 0;
   result := 0;
-  while i < n {
+  while i < n
+    invariant 0 <= i <= n;
+    decreases n - i;
+    invariant result == (i * (i + 1) * (2 * i + 1)) / 6;
+  {
     i := i + 1;
     result := result + i * i;
   }
 }
 
 method countsquares2(n:nat) returns (result:nat)
-  // ensures result == ...
+  ensures result == (n * (n + 1) * (2 * n + 1)) / 6;
 {
   var i := n;
   result := 0;
-  while i > 0 {
+  while i > 0
+    invariant 0 <= i <= n;
+    decreases i;
+    invariant result == ((n * (n + 1) * (2 * n + 1)) / 6) - ((i * (i + 1) * (2 * i + 1)) / 6);
+  {
     result := result + i * i;
     i := i - 1;
   }
