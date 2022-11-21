@@ -36,7 +36,7 @@ method binarysearch_between(A:array<int>, v:int, lo:int, hi:int) returns (result
 {
   if lo == hi {
     return false;
-  } 
+  }
   var mid:int := (lo + hi) / 2;
   if v == A[mid] {
     return true;
@@ -57,12 +57,12 @@ method binarysearch(A:array<int>, v:int) returns (result:bool)
 
 method binarysearch_iter(A:array<int>, v:int) returns (result:bool)
 {
-  // Please provide an implementation of this method. 
+  // Please provide an implementation of this method.
 }
 
 method partition(A:array<int>, lo:int, hi:int) returns (pivot:int)
   requires 0 <= lo < hi <= A.Length
-  ensures 0 <= lo <= pivot < hi
+  ensures 0 <= lo <= pivot < hi <= A.Length
   ensures forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k]
   modifies A
 {
@@ -71,6 +71,9 @@ method partition(A:array<int>, lo:int, hi:int) returns (pivot:int)
   while i < hi
     invariant 0 <= lo <= pivot < i <= hi
     invariant forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k]
+    invariant forall k :: (k==pivot) ==> A[k] == old(A[lo])
+    invariant forall k :: (lo <= k <= pivot) ==> A[k] <= A[pivot]
+    invariant forall k :: (pivot <= k < i) ==> A[k] >= A[pivot]
     decreases hi - i
   {
     if A[i] < A[pivot] {
@@ -79,6 +82,10 @@ method partition(A:array<int>, lo:int, hi:int) returns (pivot:int)
       A[i] := A[j];
       while pivot < j
         invariant forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k]
+        invariant forall k :: (k==pivot) ==> A[k] == old(A[lo])
+        invariant forall k :: (pivot <= k <= i) ==> A[k] >= A[pivot]
+        invariant forall k :: (lo <= k <= pivot) ==> A[k] <= A[pivot]
+        invariant A[pivot] > tmp
         decreases j
       {
         A[j+1] := A[j];
@@ -106,15 +113,16 @@ method quicksort_between(A:array<int>, lo:int, hi:int)
 
 method quicksort(A:array<int>)
 	modifies A
+  ensures sorted(A)
 {
   quicksort_between(A, 0, A.Length);
 }
 
 method Main() {
   var A:array<int> := new int[7] [4,0,1,9,7,1,2];
-  print "Before: ", A[0], A[1], A[2], A[3], 
+  print "Before: ", A[0], A[1], A[2], A[3],
         A[4], A[5], A[6], "\n";
   quicksort(A);
-  print "After:  ", A[0], A[1], A[2], A[3], 
+  print "After:  ", A[0], A[1], A[2], A[3],
         A[4], A[5], A[6], "\n";
 }
