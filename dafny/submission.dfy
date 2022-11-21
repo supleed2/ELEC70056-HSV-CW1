@@ -76,8 +76,7 @@ method binarysearch_iter(A:array<int>, v:int) returns (result:bool)
   var hi := A.Length;
   while lo < hi
     invariant 0 <= lo <= hi <= A.Length;
-    invariant forall j :: 0 <= j < lo ==> A[j] != v;
-    invariant forall j :: hi <= j < A.Length ==> A[j] != v;
+    invariant forall j :: (0 <= j < lo || hi <= j < A.Length) ==> A[j] != v;
     decreases hi - lo;
   {
     var mid := (lo + hi) / 2;
@@ -92,16 +91,21 @@ method binarysearch_iter(A:array<int>, v:int) returns (result:bool)
 }
 
 method partition(A:array<int>, lo:int, hi:int) returns (pivot:int)
-  requires 0 <= lo < hi <= A.Length
-  ensures 0 <= lo <= pivot < hi
-  ensures forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k]
-  modifies A
+  requires 0 <= lo < hi <= A.Length;
+  ensures 0 <= lo <= pivot < hi <= A.Length;
+  ensures forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k];
+  ensures forall k :: lo <= k < pivot ==> A[k] <= A[pivot];
+  ensures forall k :: pivot <= k < hi ==> A[pivot] <= A[k];
+  modifies A;
 {
   pivot := lo;
   var i := lo+1;
   while i < hi
     invariant 0 <= lo <= pivot < i <= hi
     invariant forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k]
+    invariant forall k :: (k==pivot) ==> A[k] == old(A[lo])
+    invariant forall k :: (lo <= k <= pivot) ==> A[k] <= A[pivot]
+    invariant forall k :: (pivot <= k < i) ==> A[k] >= A[pivot]
     decreases hi - i
   {
     if A[i] < A[pivot] {
@@ -110,6 +114,10 @@ method partition(A:array<int>, lo:int, hi:int) returns (pivot:int)
       A[i] := A[j];
       while pivot < j
         invariant forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k]
+        invariant forall k :: (k==pivot) ==> A[k] == old(A[lo])
+        invariant forall k :: (pivot <= k <= i) ==> A[k] >= A[pivot]
+        invariant forall k :: (lo <= k <= pivot) ==> A[k] <= A[pivot]
+        invariant A[pivot] > tmp
         decreases j
       {
         A[j+1] := A[j];
@@ -123,29 +131,53 @@ method partition(A:array<int>, lo:int, hi:int) returns (pivot:int)
   }
 }
 
+predicate sorted_seq(A:seq<int>)
+{
+  forall m,n :: 0 <= m < n < |A| ==> A[m] <= A[n]
+}
+
 method quicksort_between(A:array<int>, lo:int, hi:int)
-  requires 0 <= lo <= hi <= A.Length
-  ensures forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k]
-  modifies A
-  decreases hi - lo
+  requires A.Length == 2;
+  requires 0 <= lo <= hi <= A.Length;
+  ensures forall k :: (0 <= k < lo || hi <= k < A.Length) ==> old(A[k]) == A[k];
+  // old(A[k]) evaluates to the value of A[k] on entry to the method, so this
+  // checkes that only values in A[lo..hi] can be modified by this method
+  // ensures sorted_seq(A[lo..hi]);
+  modifies A;
+  decreases hi - lo;
 {
   if lo+1 >= hi { return; }
   var pivot := partition(A, lo, hi);
+  assert forall a :: a in A[lo..pivot] ==> a <= A[pivot];
+  assert forall a :: a in A[pivot..hi] ==> A[pivot] <= a;
   quicksort_between(A, lo, pivot);
+  // assert sorted_seq(A[lo..pivot]);
+  // assert sorted_seq(A[pivot..hi]);
+  assert forall a :: a in A[lo..pivot] ==> a <= A[pivot];
+  assert forall a :: a in A[pivot..hi] ==> A[pivot] <= a;
   quicksort_between(A, pivot+1, hi);
+  // assert sorted_seq(A[lo..pivot]);
+  // assert sorted_seq(A[pivot..hi]);
+  // assert forall a :: a in A[lo..pivot] ==> a <= A[pivot];
+  // assert forall a :: a in A[pivot..hi] ==> A[pivot] <= a;
+
 }
 
 method quicksort(A:array<int>)
-	modifies A
+  modifies A;
+  requires A.Length == 2;
+  // ensures sorted(A);
 {
   quicksort_between(A, 0, A.Length);
 }
 
 method Main() {
-  var A:array<int> := new int[7] [4,0,1,9,7,1,2];
-  print "Before: ", A[0], A[1], A[2], A[3],
-        A[4], A[5], A[6], "\n";
+  // var A:array<int> := new int[7] [4,0,1,9,7,1,2];
+  // print "Before: ", A[0], A[1], A[2], A[3], A[4], A[5], A[6], "\n";
+  // quicksort(A);
+  // print "After:  ", A[0], A[1], A[2], A[3], A[4], A[5], A[6], "\n";
+  var A:array<int> := new int[2] [1040, -197];
+  print "Before: ", A[0], " ", A[1], "\n";
   quicksort(A);
-  print "After:  ", A[0], A[1], A[2], A[3],
-        A[4], A[5], A[6], "\n";
+  print "After:  ", A[0], " ", A[1], "\n";
 }
