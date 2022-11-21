@@ -34,13 +34,16 @@ method countsquares2(n:nat) returns (result:nat)
 }
 
 predicate sorted(A:array<int>)
-  reads A
+  reads A;
 {
-	forall m,n :: 0 <= m < n < A.Length ==> A[m] <= A[n]
+  forall m,n :: 0 <= m < n < A.Length ==> A[m] <= A[n]
 }
 
 method binarysearch_between(A:array<int>, v:int, lo:int, hi:int) returns (result:bool)
-  requires false // Please remove this line.
+  requires sorted(A);
+  requires 0 <= lo <= hi <= A.Length;
+  decreases hi - lo;
+  ensures (exists j :: lo <= j < hi && A[j] == v) <==> result;
 {
   if lo == hi {
     return false;
@@ -58,14 +61,34 @@ method binarysearch_between(A:array<int>, v:int, lo:int, hi:int) returns (result
 }
 
 method binarysearch(A:array<int>, v:int) returns (result:bool)
-  requires false // Please remove this line.
+  requires sorted(A);
+  ensures (exists j :: 0 <= j < A.Length && A[j] == v) <==> result;
 {
-  result := binarysearch_between(A, v, 0, A.Length);
+  result := binarysearch_between(A, v, 0, A.Length); // call with lo and hi to cover full array
 }
 
 method binarysearch_iter(A:array<int>, v:int) returns (result:bool)
+  requires sorted(A);
+  ensures (exists j :: 0 <= j < A.Length && A[j] == v) <==> result;
 {
-  // Please provide an implementation of this method.
+  result := false;
+  var lo := 0;
+  var hi := A.Length;
+  while lo < hi
+    invariant 0 <= lo <= hi <= A.Length;
+    invariant forall j :: 0 <= j < lo ==> A[j] != v;
+    invariant forall j :: hi <= j < A.Length ==> A[j] != v;
+    decreases hi - lo;
+  {
+    var mid := (lo + hi) / 2;
+    if A[mid] > v {
+      hi := mid;
+    } else if A[mid] < v {
+      lo := mid + 1;
+    } else {
+      return true;
+    }
+  }
 }
 
 method partition(A:array<int>, lo:int, hi:int) returns (pivot:int)
