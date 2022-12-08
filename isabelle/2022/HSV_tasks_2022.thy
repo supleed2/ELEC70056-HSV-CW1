@@ -1,20 +1,28 @@
 theory HSV_tasks_2022 imports Complex_Main begin
 
-section {* Task 1: Full adders *}
+section "Task 1: Full adders"
+
+fun halfadder :: "bool * bool \<Rightarrow> bool * bool"
+  where "halfadder (a,b) = (
+    let cout = (a \<and> b) in
+    let s = (a \<or> b) \<and> \<not>(a \<and> b) in
+    (cout, s))"
 
 fun fulladder :: "bool * bool * bool \<Rightarrow> bool * bool"
-where
-  "fulladder (a,b,cin) = (
-   let (tmp1, tmp2) = halfadder(a,b) in
-   let (tmp3, s) = halfadder(cin,tmp2) in
-   let cout = tmp1 | tmp3 in
-   (cout, s))"
+  where "fulladder (a,b,cin) = (
+    let (tmp1, tmp2) = halfadder(a,b) in
+    let (tmp3, s) = halfadder(cin,tmp2) in
+    let cout = tmp1 | tmp3 in
+    (cout, s))"
 
+fun b2i :: "bool \<Rightarrow> int"
+  where "b2i (b) = (if (b) then 1 else 0)"
 
-section {* Task 2: Fifth powers *}
+theorem "\<forall>a b.(co,s) = halfadder(a,b) \<Longrightarrow> (2*b2i(co)+b2i(s)) = (b2i(a)+b2i(b))"
+  by auto
 
-theorem "(n::nat) ^ 5 mod 10 = n mod 10"
-  oops
+theorem "\<forall>a b ci.(co,s) = fulladder(a,b,ci) \<Longrightarrow> (2*b2i(co)+b2i(s)) = (b2i(a)+b2i(b)+b2i(ci))"
+  by auto
 
 section {* Task 3: Logic optimisation *}
 
