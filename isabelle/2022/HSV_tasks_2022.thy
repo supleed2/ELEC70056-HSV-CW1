@@ -24,7 +24,31 @@ theorem "\<forall>a b.(co,s) = halfadder(a,b) \<Longrightarrow> (2*b2i(co)+b2i(s
 theorem "\<forall>a b ci.(co,s) = fulladder(a,b,ci) \<Longrightarrow> (2*b2i(co)+b2i(s)) = (b2i(a)+b2i(b)+b2i(ci))"
   by auto
 
-section {* Task 3: Logic optimisation *}
+section "Task 2: Fifth powers"
+
+theorem "(n::nat)^5 mod 10 = n mod 10"
+proof (induct n)
+  case 0
+  thus ?case by simp
+next
+  case (Suc n)
+  have d2:"((n::nat)^4 + n) mod 2 = 0" by simp
+  hence d10:"(5*((n::nat)^4 + n)) mod 10 = 0"
+    by (metis mult_0_right mult_2_right mult_mod_right numeral_Bit0)
+  assume IH:"n ^ 5 mod 10 = n mod 10"
+  have "(Suc n)^5 = (n + 1)^5" by simp
+  have "... = n^5 + 5*(n^4 + n) + 10*n^3 + 10*n^2 + 1" by algebra
+  have "... mod 10 = (n^5 + 5*(n^4 + n) + 1) mod 10"
+    by (smt (verit, ccfv_SIG) mod_add_cong mod_mult_self2)
+  have "... = (n^5 + 1) mod 10" using d10 by auto
+  thus ?case by (metis Suc Suc_eq_plus1 \<open>(n + 1) ^ 5 = n ^ 5 + 5 * (n ^ 4 + n) + 10 * n ^ 3 + 10 *
+    n\<^sup>2 + 1\<close> \<open>(n ^ 5 + 5 * (n ^ 4 + n) + 10 * n ^ 3 + 10 * n\<^sup>2 + 1) mod 10 = (n ^ 5 + 5 * (n ^ 4 + n)
+    + 1) mod 10\<close> mod_Suc_eq)
+qed
+
+theorem "\<exists>n::nat.(n^6 mod 10 \<noteq> n mod 10)" by (rule exI[where x = 2], simp)
+
+section "Task 3: Logic optimisation"
 
 (* Datatype for representing simple circuits. *)
 datatype "circuit" = 
@@ -79,7 +103,7 @@ fun area :: "circuit \<Rightarrow> nat" where
 | "area (OR c1 c2) = 1 + area c1 + area c2"
 | "area _ = 0"
 
-section {* Task 4: More logic optimisation *}
+section "Task 4: More logic optimisation"
 
 lemma (* test case *) 
   "opt_redundancy (AND (INPUT 1) (OR (INPUT 1) (INPUT 2))) 
