@@ -51,7 +51,7 @@ theorem "\<exists>n::nat.(n^6 mod 10 \<noteq> n mod 10)" by (rule exI[where x = 
 section "Task 3: Logic optimisation"
 
 (* Datatype for representing simple circuits. *)
-datatype "circuit" = 
+datatype "circuit" =
   NOT "circuit"
 | AND "circuit" "circuit"
 | OR "circuit" "circuit"
@@ -60,7 +60,7 @@ datatype "circuit" =
 | INPUT "int"
 
 (* Simulates a circuit given a valuation for each input wire. *)
-fun simulate where
+fun simulate :: "circuit \<Rightarrow> (int \<Rightarrow> bool) \<Rightarrow> bool" where
   "simulate (AND c1 c2) \<rho> = ((simulate c1 \<rho>) \<and> (simulate c2 \<rho>))"
 | "simulate (OR c1 c2) \<rho> = ((simulate c1 \<rho>) \<or> (simulate c2 \<rho>))"
 | "simulate (NOT c) \<rho> = (\<not> (simulate c \<rho>))"
@@ -76,7 +76,7 @@ fun circuits_equiv (infix "\<sim>" 50) (* the "50" indicates the operator preced
   `a | a = a`
   `a & a = a`
  *)
-fun opt_ident where
+fun opt_ident :: "circuit \<Rightarrow> circuit" where
   "opt_ident (NOT c) = NOT (opt_ident c)"
 | "opt_ident (AND c1 c2) = (
    let c1' = opt_ident c1 in
@@ -90,18 +90,55 @@ fun opt_ident where
 | "opt_ident FALSE = FALSE"
 | "opt_ident (INPUT i) = INPUT i"
 
-lemma (* test case *) 
-  "opt_ident (AND (INPUT 1) (OR (INPUT 1) (INPUT 1))) = INPUT 1" 
-by eval
+lemma "opt_ident (AND (INPUT 1) (OR (INPUT 1) (INPUT 1))) = INPUT 1" by eval (* test case *)
 
 theorem opt_ident_is_sound: "opt_ident c \<sim> c"
-  oops
+proof (induct c)
+  case (AND c1 c2)
+  thus ?case by (smt circuits_equiv.simps opt_ident.simps(2) simulate.simps(1))
+next
+  case (OR c1 c2)
+  thus ?case by (smt circuits_equiv.simps opt_ident.simps(3) simulate.simps(2))
+qed(simp+)
 
 fun area :: "circuit \<Rightarrow> nat" where
   "area (NOT c) = 1 + area c"
 | "area (AND c1 c2) = 1 + area c1 + area c2"
 | "area (OR c1 c2) = 1 + area c1 + area c2"
 | "area _ = 0"
+
+theorem opt_ident_never_inc_area: "area (opt_ident c) \<le> area c"
+proof (induct c)
+  case (AND c1 c2)
+  {
+    assume "opt_ident c1 = opt_ident c2"
+    hence "area (opt_ident (AND c1 c2)) = area (opt_ident c1)" by simp
+    hence "area (opt_ident (AND c1 c2)) \<le> area (AND (opt_ident c1) (opt_ident c2))" by simp
+    hence ?case using AND.hyps(2) \<open>opt_ident c1 = opt_ident c2\<close> by auto
+  }
+  moreover
+  {
+    assume "opt_ident c1 \<noteq> opt_ident c2"
+    hence "area (opt_ident (AND c1 c2)) = area (AND (opt_ident c1) (opt_ident c2))" by simp
+    hence ?case by (simp add: AND.hyps(1) AND.hyps(2) add_mono_thms_linordered_semiring(1))
+  }
+  ultimately show ?case by fastforce
+next
+  case (OR c1 c2)
+  {
+    assume "opt_ident c1 = opt_ident c2"
+    hence "area (opt_ident (OR c1 c2)) = area (opt_ident c1)" by simp
+    hence "area (opt_ident (OR c1 c2)) \<le> area (OR (opt_ident c1) (opt_ident c2))" by simp
+    hence ?case using OR.hyps(2) \<open>opt_ident c1 = opt_ident c2\<close> by auto
+  }
+  moreover
+  {
+    assume "opt_ident c1 \<noteq> opt_ident c2"
+    hence "area (opt_ident (OR c1 c2)) = area (OR (opt_ident c1) (opt_ident c2))" by simp
+    hence ?case by (simp add: OR.hyps(1) OR.hyps(2) add_mono_thms_linordered_semiring(1))
+  }
+  ultimately show ?case by fastforce
+qed(simp+)
 
 section "Task 4: More logic optimisation"
 
