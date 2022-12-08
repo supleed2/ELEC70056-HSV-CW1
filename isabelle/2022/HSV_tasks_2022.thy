@@ -141,26 +141,308 @@ next
 qed(simp+)
 
 section "Task 4: More logic optimisation"
+(* Note: - opt_redundancy is shown to be valid (opt_redundancy_is_sound)
+         - opt_redundancy never increases area is incomplete (opt_redundancy_never_inc_area)
+*)
 
-lemma (* test case *) 
-  "opt_redundancy (AND (INPUT 1) (OR (INPUT 1) (INPUT 2))) 
-   = INPUT 1" 
-  (* by eval *) oops
-lemma (* test case *) 
-  "opt_redundancy (AND (AND (INPUT 1) (OR (INPUT 1) (INPUT 2)))
-                       (OR (AND (INPUT 1) (OR (INPUT 1) (INPUT 2))) (INPUT 2))) 
-   = INPUT 1" 
-  (* by eval *) oops
-lemma (* test case *) 
-  "opt_redundancy (AND (AND (INPUT 1) (OR (INPUT 1) (INPUT 2))) 
-                       (OR (INPUT 2) (AND (INPUT 1) (OR (INPUT 1) (INPUT 2))))) 
-   = INPUT 1"
-  (* by eval *) oops
-lemma (* test case *) 
-  "opt_redundancy (AND (AND (AND (INPUT 1) (OR (INPUT 1) (INPUT 2))) 
-                            (OR (INPUT 2) (AND (INPUT 1) (OR (INPUT 1) (INPUT 2))))) 
-                       (OR (INPUT 1) (INPUT 2))) 
-  = INPUT 1" 
-  (* by eval *) oops
+(* An optimisation that exploits the following Boolean identities:
+  `a | (a & b) = a`
+  `(a & b) | a = a`
+  `a & (a | b) = a`
+  `(a | b) & a = a`
+ *)
+fun opt_redundancy :: "circuit \<Rightarrow> circuit" where
+  "opt_redundancy (NOT c) = NOT (opt_redundancy c)"
+| "opt_redundancy (OR c1 (AND c2 c3)) = (
+   let c1' = opt_redundancy c1 in
+   let c2' = opt_redundancy c2 in
+   let c3' = opt_redundancy c3 in
+   if (c1' = c2') | (c1' = c3') then c1'
+   else if c2' = c3' then OR c1' c2'
+   else OR c1' (opt_redundancy (AND c2 c3)))"
+| "opt_redundancy (OR (AND c1 c2) c3) = (
+   let c1' = opt_redundancy c1 in
+   let c2' = opt_redundancy c2 in
+   let c3' = opt_redundancy c3 in
+   if (c1' = c3') | (c2' = c3') then c3'
+   else if c1' = c2' then OR c1' c3'
+   else OR (opt_redundancy (AND c1 c2)) c3')"
+| "opt_redundancy (AND c1 (OR c2 c3)) = (
+   let c1' = opt_redundancy c1 in
+   let c2' = opt_redundancy c2 in
+   let c3' = opt_redundancy c3 in
+   if (c1' = c2') | (c1' = c3') then c1'
+   else if c2' = c3' then AND c1' c2'
+   else AND c1' (opt_redundancy (OR c2 c3)))"
+| "opt_redundancy (AND (OR c1 c2) c3) = (
+   let c1' = opt_redundancy c1 in
+   let c2' = opt_redundancy c2 in
+   let c3' = opt_redundancy c3 in
+   if (c1' = c3') | (c2' = c3') then c3'
+   else if c1' = c2' then AND c1' c3'
+   else AND (opt_redundancy (OR c1 c2)) c3')"
+| "opt_redundancy (AND c1 c2) = (
+   let c1' = opt_redundancy c1 in
+   let c2' = opt_redundancy c2 in
+   if c1' = c2' then c1' else AND c1' c2')"
+| "opt_redundancy (OR c1 c2) = (
+   let c1' = opt_redundancy c1 in
+   let c2' = opt_redundancy c2 in
+   if c1' = c2' then c1' else OR c1' c2')"
+| "opt_redundancy TRUE = TRUE"
+| "opt_redundancy FALSE = FALSE"
+| "opt_redundancy (INPUT i) = INPUT i"
+
+lemma "opt_redundancy (AND (INPUT 1)
+                           (OR (INPUT 1)
+                               (INPUT 2))) = INPUT 1" by eval (* test case *)
+
+lemma "opt_redundancy (AND (AND (INPUT 1)
+                                (OR (INPUT 1)
+                                    (INPUT 2)))
+                           (OR (AND (INPUT 1)
+                                    (OR (INPUT 1)
+                                        (INPUT 2)))
+                               (INPUT 2))) = INPUT 1" by eval (* test case *)
+
+lemma "opt_redundancy (AND (AND (INPUT 1)
+                                (OR (INPUT 1)
+                                    (INPUT 2)))
+                           (OR (INPUT 2)
+                               (AND (INPUT 1)
+                                    (OR (INPUT 1)
+                                        (INPUT 2))))) = INPUT 1" by eval (* test case *)
+
+lemma "opt_redundancy (AND (AND (AND (INPUT 1)
+                                     (OR (INPUT 1)
+                                         (INPUT 2)))
+                                (OR (INPUT 2)
+                                    (AND (INPUT 1)
+                                         (OR (INPUT 1)
+                                             (INPUT 2)))))
+                           (OR (INPUT 1)
+                               (INPUT 2))) = INPUT 1" by eval (* test case *)
+
+theorem opt_redundancy_is_sound: "opt_redundancy c \<sim> c"
+proof (induct rule:opt_redundancy.induct)
+  case (2 c1 c2 c3)
+  thus ?case by (smt (verit) opt_redundancy.simps(2) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("3_1" c1 c2 v)
+  thus ?case by (smt (verit) opt_redundancy.simps(3) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("3_2" c1 c2 v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(4) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("3_3" c1 c2)
+  thus ?case by (smt (verit) opt_redundancy.simps(5) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("3_4" c1 c2)
+  thus ?case by (smt (verit) opt_redundancy.simps(6) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("3_5" c1 c2 v)
+  thus ?case by (smt (verit) opt_redundancy.simps(7) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case (4 c1 c2 c3)
+  thus ?case by (smt (verit) opt_redundancy.simps(8) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("5_1" c1 c2 v)
+  thus ?case by (smt (verit) opt_redundancy.simps(9) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("5_2" c1 c2 v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(10) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("5_3" c1 c2)
+  thus ?case by (smt (verit) opt_redundancy.simps(11) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("5_4" c1 c2)
+  thus ?case by (smt (verit) opt_redundancy.simps(12) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("5_5" c1 c2 v)
+  thus ?case by (smt (verit) opt_redundancy.simps(13) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_1" va v)
+  thus ?case by (smt (verit) opt_redundancy.simps(14) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_2" va vb v)
+  thus ?case by (smt (verit) opt_redundancy.simps(15) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_6" vb v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(19) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_7" vb vc v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(20) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_8" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(21) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_9" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(22) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_10" vb v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(23) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_12" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(25) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_17" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(30) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_22" va vb v)
+  thus ?case by (smt (verit) opt_redundancy.simps(35) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("6_25" va v)
+  thus ?case by (smt (verit) opt_redundancy.simps(38) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_1" va v)
+  thus ?case by (smt (verit) opt_redundancy.simps(39) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_2" va vb v)
+  thus ?case by (smt (verit) opt_redundancy.simps(40) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_6" vb v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(44) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_7" vb vc v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(45) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_8" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(46) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_9" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(47) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_10" vb v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(48) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_12" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(50) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_17" v va)
+  thus ?case by (smt (verit) opt_redundancy.simps(55) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_22" va vb v)
+  thus ?case by (smt (verit) opt_redundancy.simps(60) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+next
+  case ("7_25" va v)
+  thus ?case by (smt (verit) opt_redundancy.simps(63) circuits_equiv.elims(1) simulate.simps(1) simulate.simps(2))
+qed(simp+)
+
+theorem opt_redundancy_never_inc_area: "area (opt_redundancy c) \<le> area c"
+proof (induct rule:opt_redundancy.induct)
+  case (2 c1 c2 c3)
+(* area (opt_redundancy (OR c1 (AND c2 c3))) \<le> area (OR c1 (AND c2 c3)) *)
+  let ?c1' = "opt_redundancy c1"
+  let ?c2' = "opt_redundancy c2"
+  let ?c3' = "opt_redundancy c3"
+  from 2 have IH:"area (OR ?c1' (AND ?c2' ?c3')) \<le> area (OR c1 (AND c2 c3))" by fastforce
+  have a:"(area (opt_redundancy (OR c1 (AND c2 c3))) = area ?c1')
+      \<or> (area (opt_redundancy (OR c1 (AND c2 c3))) = area (OR ?c1' ?c2'))
+      \<or> (area (opt_redundancy (OR c1 (AND c2 c3))) = area (OR ?c1' (opt_redundancy (AND c2 c3))))"
+    by (smt opt_redundancy.simps(2))
+  have b:"area ?c1' \<le> area (OR c1 (AND c2 c3))" using IH by simp
+  have c:"area (OR ?c1' ?c2') \<le> area (OR c1 (AND c2 c3))" using IH by simp
+  have d:"area (OR ?c1' (opt_redundancy (AND c2 c3))) \<le> area (OR c1 (AND c2 c3))" using IH sorry
+  thus ?case using a b c d by metis
+next
+  case ("3_1" c1 c2 v)
+  thus ?case sorry
+next
+  case ("3_2" c1 c2 v va)
+  thus ?case sorry
+next
+  case ("3_3" c1 c2)
+  thus ?case sorry
+next
+  case ("3_4" c1 c2)
+  thus ?case sorry
+next
+  case ("3_5" c1 c2 v)
+  thus ?case sorry
+next
+  case (4 c1 c2 c3)
+  thus ?case sorry
+next
+  case ("5_1" c1 c2 v)
+  thus ?case sorry
+next
+  case ("5_2" c1 c2 v va)
+  thus ?case sorry
+next
+  case ("5_3" c1 c2)
+  thus ?case sorry
+next
+  case ("5_4" c1 c2)
+  thus ?case sorry
+next
+  case ("5_5" c1 c2 v)
+  thus ?case sorry
+next
+  case ("6_1" va v)
+  thus ?case sorry
+next
+  case ("6_2" va vb v)
+  thus ?case sorry
+next
+  case ("6_6" vb v va)
+  thus ?case sorry
+next
+  case ("6_7" vb vc v va)
+  thus ?case sorry
+next
+  case ("6_8" v va)
+  thus ?case sorry
+next
+  case ("6_9" v va)
+  thus ?case sorry
+next
+  case ("6_10" vb v va)
+  thus ?case sorry
+next
+  case ("6_12" v va)
+  thus ?case sorry
+next
+  case ("6_17" v va)
+  thus ?case sorry
+next
+  case ("6_22" va vb v)
+  thus ?case sorry
+next
+  case ("6_25" va v)
+  thus ?case sorry
+next
+  case ("7_1" va v)
+  thus ?case sorry
+next
+  case ("7_2" va vb v)
+  thus ?case sorry
+next
+  case ("7_6" vb v va)
+  thus ?case sorry
+next
+  case ("7_7" vb vc v va)
+  thus ?case sorry
+next
+  case ("7_8" v va)
+  thus ?case sorry
+next
+  case ("7_9" v va)
+  thus ?case sorry
+next
+  case ("7_10" vb v va)
+  thus ?case sorry
+next
+  case ("7_12" v va)
+  thus ?case sorry
+next
+  case ("7_17" v va)
+  thus ?case sorry
+next
+  case ("7_22" va vb v)
+  thus ?case sorry
+next
+  case ("7_25" va v)
+  thus ?case sorry
+qed(simp+)
 
 end
