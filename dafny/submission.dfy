@@ -33,6 +33,11 @@ method countsquares2(n:nat) returns (result:nat)
   }
 }
 
+// countsquares was easier to verify than countsquares2 as the loop invariant
+// was the same as the post-condition of the function, as the value of result
+// after each loop iteration is simply the result of the function call with a
+// smaller input value n.
+
 predicate sorted(A:array<int>)
   reads A;
 {
